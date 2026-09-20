@@ -167,6 +167,7 @@ select{width:100%;font-family:var(--sans);font-size:14px;color:var(--ink);backgr
     <div>
       <div class="brand"><h1>Scale-Out Planner</h1><span class="mk">Risk&nbsp;·&nbsp;1:1&nbsp;·&nbsp;2:1</span></div>
       <p class="tagline">Look up a ticker for a fair-entry read, plan the scale-out, and save the trade to record fills later.</p>
+      <p id="whoami" class="tagline" style="margin-top:4px"></p>
     </div>
     <button class="theme-btn" id="themeBtn" type="button">◑ Theme</button>
   </header>
@@ -466,6 +467,14 @@ $("deleteTrade").addEventListener("click",async function(){
 /* ---------- boot ---------- */
 renderPlan();
 refreshTrades();
+fetch(API+"/me").then(function(r){return r.ok?r.json():null;}).then(function(m){
+  var el=$("whoami"); if(!m||!el){return;}
+  if(m.name && m.name!=="local"){
+    el.innerHTML="Signed in as "+esc(m.name)+' \u00b7 <a href="/.auth/logout">Sign out</a>';
+  } else {
+    el.textContent="Local dev \u00b7 no login";
+  }
+}).catch(function(){});
 })();
 </script>
 </body>

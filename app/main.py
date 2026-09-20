@@ -10,7 +10,7 @@ Endpoints:
 """
 import os
 from contextlib import asynccontextmanager
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse
 
@@ -20,6 +20,7 @@ from .models import PlanInput
 from .suggest import build_fair_entry, fair_entry_to_dict
 from .trades import router as trades_router
 from . import scaleout, market_data, indicators
+from .auth import current_user, current_user_name
 
 
 @asynccontextmanager
@@ -51,6 +52,12 @@ def index():
 @app.get("/health")
 def health() -> dict:
     return {"status": "ok"}
+
+
+@app.get("/me")
+def me(request: Request) -> dict:
+    """Who is signed in (from Easy Auth); 'local' when running without auth."""
+    return {"user_id": current_user(request), "name": current_user_name(request)}
 
 
 @app.post("/plan")

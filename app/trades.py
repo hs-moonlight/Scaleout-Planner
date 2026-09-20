@@ -1,4 +1,4 @@
-"""CRUD for saved trades, plus a realized-performance view and simple stats."""
+"""CRUD for saved trades, scoped to the signed-in user, plus realized + stats."""
 from datetime import datetime
 from typing import List
 from fastapi import APIRouter, Depends, HTTPException
@@ -6,18 +6,16 @@ from sqlmodel import Session, select
 
 from .database import get_session
 from .models import Trade, TradeCreate, TradeUpdate
+from .auth import current_user
 from . import scaleout
 
 router = APIRouter(prefix="/trades", tags=["trades"])
 
-# Step 2: single local user. Step 3 replaces this with the authenticated user's
-# internal id derived from the token's subject claim.
-CURRENT_USER = "local"
-
 
 @router.post("", response_model=Trade)
-def create_trade(payload: TradeCreate, session: Session = Depends(get_session)) -> Trade:
-    trade = Trade(user_id=CURRENT_USER, **payload.model_dump())
+def create_trade(payload: TradeCreate, user: str = Depends(current_user),
+                 session: Session = Depends(get_session)) -> Trade:
+    trade = Trade(user_id=user, **payload.model_dump())
     session.add(trade)
     session.commit()
     session.refresh(trade)
@@ -25,15 +23,16 @@ def create_trade(payload: TradeCreate, session: Session = Depends(get_session)) 
 
 
 @router.get("", response_model=List[Trade])
-def list_trades(session: Session = Depends(get_session)) -> List[Trade]:
-    stmt = select(Trade).where(Trade.user_id == CURRENT_USER).order_by(Trade.updated_at.desc())
+def list_trades(user: str = Depends(current_user),
+                session: Session = Depends(get_session)) -> List[Trade]:
+    stmt = select(Trade).where(Trade.user_id == user).order_by(Trade.updated_at.desc())
     return list(session.exec(stmt).all())
 
 
 @router.get("/stats")
-def trade_stats(session: Session = Depends(get_session)) -> dict:
-    """Foundation for the Step 4 journal: win rate + total realized R on closed trades."""
-    stmt = select(Trade).where(Trade.user_id == CURRENT_USER)
+def trade_stats(user: str = Depends(current_user),
+                session: Session = Depends(get_session)) -> dict:
+    stmt = select(Trade).where(Trade.user_id == user)
     trades = list(session.exec(stmt).all())
     closed = [t for t in trades if t.status in ("closed", "stopped")]
     total_r = 0.0
@@ -54,25 +53,25 @@ def trade_stats(session: Session = Depends(get_session)) -> dict:
 
 
 @router.get("/{trade_id}", response_model=Trade)
-def get_trade(trade_id: int, session: Session = Depends(get_session)) -> Trade:
-    trade = _owned(session, trade_id)
-    return trade
+def get_trade(trade_id: int, user: str = Depends(current_user),
+              session: Session = Depends(get_session)) -> Trade:
+    return _owned(session, trade_id, user)
 
 
 @router.get("/{trade_id}/realized")
-def get_realized(trade_id: int, session: Session = Depends(get_session)) -> dict:
-    """Realized P&L / R / % from the actual fills recorded on this trade."""
-    t = _owned(session, trade_id)
-    return scaleout.realized_to_dict(_realized(t))
+def get_realized(trade_id: int, user: str = Depends(current_user),
+                 session: Session = Depends(get_session)) -> dict:
+    return scaleout.realized_to_dict(_realized(_owned(session, trade_id, user)))
 
 
 @router.put("/{trade_id}", response_model=Trade)
-def update_trade(trade_id: int, payload: TradeUpdate, session: Session = Depends(get_session)) -> Trade:
-    trade = _owned(session, trade_id)
-    for key, value in payload.model_dump(exclude_unset=True).items():
+def update_trade(trade_id: int, payload: TradeUpdate, user: str = Depends(current_user),
+                 session: Session = Depends(get_session)) -> Trade:
+    trade = _owned(session, trade_id, user)
+    data = payload.model_dump(exclude_unset=True)
+    for key, value in data.items():
         setattr(trade, key, value)
-    # Recompute status from the (possibly updated) fills unless caller set it.
-    if "status" not in payload.model_dump(exclude_unset=True):
+    if "status" not in data:
         trade.status = _realized(trade).status
     trade.updated_at = datetime.utcnow()
     session.add(trade)
@@ -82,16 +81,17 @@ def update_trade(trade_id: int, payload: TradeUpdate, session: Session = Depends
 
 
 @router.delete("/{trade_id}")
-def delete_trade(trade_id: int, session: Session = Depends(get_session)) -> dict:
-    trade = _owned(session, trade_id)
+def delete_trade(trade_id: int, user: str = Depends(current_user),
+                 session: Session = Depends(get_session)) -> dict:
+    trade = _owned(session, trade_id, user)
     session.delete(trade)
     session.commit()
     return {"ok": True, "deleted": trade_id}
 
 
-def _owned(session: Session, trade_id: int) -> Trade:
+def _owned(session: Session, trade_id: int, user: str) -> Trade:
     trade = session.get(Trade, trade_id)
-    if not trade or trade.user_id != CURRENT_USER:
+    if not trade or trade.user_id != user:
         raise HTTPException(status_code=404, detail="Trade not found")
     return trade
 
