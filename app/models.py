@@ -1,8 +1,14 @@
 """Pydantic request models and the SQLModel Trade table."""
 from typing import Optional
-from datetime import datetime
+from datetime import datetime, timezone
 from pydantic import BaseModel
 from sqlmodel import SQLModel, Field
+
+
+def utcnow() -> datetime:
+    """Timezone-aware UTC now. Postgres TIMESTAMPTZ columns reject naive
+    datetimes (SQLite silently accepted them), so all timestamps use this."""
+    return datetime.now(timezone.utc)
 
 
 class PlanInput(BaseModel):
@@ -52,8 +58,8 @@ class Trade(SQLModel, table=True):
     stop_fill_shares: Optional[int] = None
 
     status: str = "planned"           # planned | t1_filled | closed | stopped
-    created_at: datetime = Field(default_factory=datetime.utcnow)
-    updated_at: datetime = Field(default_factory=datetime.utcnow)
+    created_at: datetime = Field(default_factory=utcnow)
+    updated_at: datetime = Field(default_factory=utcnow)
 
 
 class TradeCreate(BaseModel):

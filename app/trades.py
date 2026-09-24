@@ -1,5 +1,5 @@
 """CRUD for saved trades, scoped to the signed-in user, plus realized + stats."""
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import List
 from fastapi import APIRouter, Depends, HTTPException
 from sqlmodel import Session, select
@@ -73,7 +73,7 @@ def update_trade(trade_id: int, payload: TradeUpdate, user: str = Depends(curren
         setattr(trade, key, value)
     if "status" not in data:
         trade.status = _realized(trade).status
-    trade.updated_at = datetime.utcnow()
+    trade.updated_at = datetime.now(timezone.utc)
     session.add(trade)
     session.commit()
     session.refresh(trade)
