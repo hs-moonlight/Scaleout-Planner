@@ -333,6 +333,10 @@ $("orderType").addEventListener("change",function(){$("limitField").classList.to
 
 /* ---------- live lookup ---------- */
 function pctFrom(a,b){return b?((a-b)/b*100):0;}
+function maLabel(d,v){
+  if(d.fast_ma==null||d.trend_anchor==null)return "40-wk";
+  return Math.abs(v-d.fast_ma)<=Math.abs(v-d.trend_anchor)?"10-wk":"40-wk";
+}
 function chgHtml(d){
   if(d.change==null||d.change_pct==null)return "";
   var up=d.change>=0, cls=up?"c-gain":"c-loss", ar=up?"\u25B2":"\u25BC", sg=up?"+":"\u2212";
@@ -361,9 +365,9 @@ function renderSuggest(d){
   lastLook={price:d.price,atr:d.atr_weekly};
   $("sgZone").innerHTML=[
     {k:"Price",v:money(d.price)+chgHtml(d)},
-    {k:"Fair-entry low (40-wk)",v:money(d.zone_low)},
+    {k:"Fair-entry low ("+maLabel(d,d.zone_low)+")",v:money(d.zone_low)},
     {k:"Ideal entry",v:money(d.ideal_entry)},
-    {k:"Fair-entry high (50-day)",v:money(d.zone_high)}
+    {k:"Fair-entry high ("+maLabel(d,d.zone_high)+")",v:money(d.zone_high)}
   ].map(function(z){return '<div class="ztile"><span class="k">'+z.k+'</span><span class="v">'+z.v+'</span></div>';}).join("");
   var flags="";
   if(d.trend_rising===true)flags+='<span class="flag ok">▲ 40-wk trend rising</span>';
