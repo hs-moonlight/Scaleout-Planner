@@ -5,7 +5,7 @@ anything it can't serve (unsupported, no key, symbol not covered, over quota,
 HTTP error) — the dispatcher then falls back to the next provider.
 
 Return shapes (plain dicts so callers stay simple):
-- quote:  {symbol, name, price, sma50, sma200, year_high, year_low, source}
+- quote:  {symbol, name, price, change, change_pct, sma50, sma200, year_high, year_low, source}
 - weekly_series: [ {date, high, low, close}, ... ]  (oldest -> newest)
 - analyst: {symbol, strong_buy, buy, hold, sell, strong_sell, consensus,
             target_high, target_low, target_consensus, target_median, source}

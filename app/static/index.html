@@ -75,6 +75,7 @@ header.top{display:flex;align-items:center;justify-content:space-between;gap:16p
 .ztile{background:var(--surface-2);border:1px solid var(--line);border-radius:11px;padding:12px 14px;display:flex;flex-direction:column;gap:4px}
 .ztile .k{font-size:11px;color:var(--muted)}
 .ztile .v{font-family:var(--mono);font-size:19px;font-weight:600;letter-spacing:-.02em;font-variant-numeric:tabular-nums}
+.ztile .chg{font-family:var(--mono);font-size:12px;font-weight:600;margin-top:1px;font-variant-numeric:tabular-nums}
 .flags{display:flex;flex-wrap:wrap;gap:8px;margin-bottom:14px}
 .flag{font-family:var(--mono);font-size:11px;padding:5px 10px;border-radius:999px;border:1px solid var(--line);display:inline-flex;gap:6px;align-items:center}
 .flag.ok{color:var(--gain);border-color:var(--gain);background:var(--gain-soft)}
@@ -200,7 +201,8 @@ select{width:100%;font-family:var(--sans);font-size:14px;color:var(--ink);backgr
     <label class="tb" for="tradeSelect">Trades</label>
     <select id="tradeSelect"><option value="">— New / unsaved —</option></select>
     <input type="text" id="tradeName" placeholder="Name this trade (e.g. NVDA Sep 19)">
-    <button class="btn sm" id="saveTrade" type="button">Save</button>
+    <button class="btn ghost sm" id="newTrade" type="button">+ New</button>
+    <button class="btn sm" id="saveTrade" type="button">Save new</button>
     <button class="btn ghost sm" id="deleteTrade" type="button">Delete</button>
     <span id="tradeStatus"></span>
   </div>
@@ -331,6 +333,11 @@ $("orderType").addEventListener("change",function(){$("limitField").classList.to
 
 /* ---------- live lookup ---------- */
 function pctFrom(a,b){return b?((a-b)/b*100):0;}
+function chgHtml(d){
+  if(d.change==null||d.change_pct==null)return "";
+  var up=d.change>=0, cls=up?"c-gain":"c-loss", ar=up?"\u25B2":"\u25BC", sg=up?"+":"\u2212";
+  return '<div class="chg '+cls+'">'+ar+" "+sg+"$"+Math.abs(d.change).toFixed(2)+" ("+sg+Math.abs(d.change_pct).toFixed(2)+"%)</div>";
+}
 async function lookup(){
   var sym=($("lkTicker").value||"").toUpperCase().trim(); if(!sym)return;
   $("lookStatus").textContent="Looking up "+sym+"…";
@@ -342,7 +349,7 @@ async function lookup(){
 function renderSuggest(d){
   $("suggestCard").classList.add("on"); $("sgSym").textContent=d.symbol;
   $("sgZone").innerHTML=[
-    {k:"Price",v:money(d.price)},
+    {k:"Price",v:money(d.price)+chgHtml(d)},
     {k:"Fair-entry low (40-wk)",v:money(d.zone_low)},
     {k:"Ideal entry",v:money(d.ideal_entry)},
     {k:"Fair-entry high (50-day)",v:money(d.zone_high)}
@@ -420,6 +427,8 @@ function gatherActuals(){
     stopped_out:$("cStop").checked,stop_fill_price:g("aStopP"),stop_fill_shares:g("aStopSh")};
 }
 function setStatus(t){$("tradeStatus").textContent=t;}
+function updateSaveLabel(){$("saveTrade").textContent=currentId?"Update":"Save new";}
+$("newTrade").addEventListener("click",function(){currentId=null;$("tradeSelect").value="";$("tradeName").value="";setStatus("New trade \u2014 fill in the planner and Save new");updateSaveLabel();});
 async function refreshTrades(sel){
   try{
     var list=await api("/trades");
@@ -441,8 +450,8 @@ function fill(t){
   renderPlan();
 }
 $("tradeSelect").addEventListener("change",async function(){
-  var id=this.value; if(!id){currentId=null;$("tradeName").value="";setStatus("New trade");return;}
-  try{var t=await api("/trades/"+id);currentId=id;$("tradeName").value=t.name||"";fill(t);setStatus("Loaded");}
+  var id=this.value; if(!id){currentId=null;$("tradeName").value="";setStatus("New trade");updateSaveLabel();return;}
+  try{var t=await api("/trades/"+id);currentId=id;$("tradeName").value=t.name||"";fill(t);setStatus("Loaded");updateSaveLabel();}
   catch(e){setStatus("Load failed");}
 });
 $("saveTrade").addEventListener("click",async function(){
@@ -452,7 +461,7 @@ $("saveTrade").addEventListener("click",async function(){
     else{var t=await api("/trades",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(gather())});
       currentId=t.id;
       await api("/trades/"+currentId,{method:"PUT",headers:{"Content-Type":"application/json"},body:JSON.stringify(gatherActuals())});}
-    setStatus("Saved ✓"); refreshTrades(currentId);
+    setStatus("Saved ✓"); refreshTrades(currentId); updateSaveLabel();
   }catch(e){setStatus("Save failed: "+e.message);}
 });
 var delArmed=false,delTimer=null;
@@ -460,13 +469,14 @@ $("deleteTrade").addEventListener("click",async function(){
   if(!currentId){setStatus("Nothing to delete");return;}
   if(!delArmed){delArmed=true;this.textContent="Confirm?";setStatus("Click again to delete");delTimer=setTimeout(function(){delArmed=false;$("deleteTrade").textContent="Delete";},3000);return;}
   clearTimeout(delTimer);delArmed=false;this.textContent="Delete";
-  try{await api("/trades/"+currentId,{method:"DELETE"});currentId=null;$("tradeName").value="";setStatus("Deleted");refreshTrades("");}
+  try{await api("/trades/"+currentId,{method:"DELETE"});currentId=null;$("tradeName").value="";setStatus("Deleted");refreshTrades("");updateSaveLabel();}
   catch(e){setStatus("Delete failed");}
 });
 
 /* ---------- boot ---------- */
 renderPlan();
 refreshTrades();
+updateSaveLabel();
 fetch(API+"/me").then(function(r){return r.ok?r.json():null;}).then(function(m){
   var el=$("whoami"); if(!m||!el){return;}
   if(m.name && m.name!=="local"){

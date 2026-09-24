@@ -154,6 +154,8 @@ async def suggest(symbol: str, stop_pct: float | None = None, debug: bool = Fals
     out = fair_entry_to_dict(fe)
     out["price_source"] = (q or {}).get("source") if q and q.get("price") is not None \
         else ("weekly_series_close" if series else None)
+    out["change"] = (q or {}).get("change")
+    out["change_pct"] = (q or {}).get("change_pct")
     out["trend_anchor_source"] = "weekly_40wk_sma" if sma40 else "quote_200day_fallback"
     out["fast_ma_source"] = "weekly_10wk_sma" if sma_fast else \
         ("quote_50day" if fast_ma is not None else None)

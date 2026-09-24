@@ -1,6 +1,7 @@
-"""Finnhub provider: current price (/quote) and analyst recommendation trends
-(/stock/recommendation → buy/hold/sell counts). Broad free coverage; price
-targets are premium (not fetched here). No 50/200-day MAs or 52wk range.
+"""Finnhub provider: real-time price + day change (/quote) and analyst
+recommendation trends (/stock/recommendation -> buy/hold/sell counts). Broad
+free coverage and real-time US quotes; price targets are premium (not fetched).
+No 50/200-day MAs or 52wk range.
 """
 from typing import Any, Dict, Optional
 from .base import Provider, http_json, consensus_label
@@ -22,8 +23,9 @@ class Finnhub(Provider):
         if not price:   # c == 0 means "no data for symbol"
             return None
         return {"symbol": symbol, "name": None, "price": float(price),
+                "change": data.get("d"), "change_pct": data.get("dp"),
                 "sma50": None, "sma200": None,
-                "year_high": None, "year_low": None,  # /quote h,l are the day range, not 52wk
+                "year_high": None, "year_low": None,   # /quote h,l are the day range, not 52wk
                 "source": self.name}
 
     async def get_analyst(self, symbol: str) -> Optional[Dict[str, Any]]:

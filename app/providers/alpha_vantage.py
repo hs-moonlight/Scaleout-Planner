@@ -1,12 +1,22 @@
-"""Alpha Vantage provider: current price (GLOBAL_QUOTE) + weekly OHLC series.
+"""Alpha Vantage provider: latest price (GLOBAL_QUOTE, incl. day change) +
+weekly OHLC series.
 
 Broad symbol coverage (covers many tickers FMP's free plan gates), but a small
-daily quota (~25/day free). No analyst data.
+daily quota (~25/day free) and GLOBAL_QUOTE reflects the last close rather than
+a live intraday tick. Used as the series source and a last-resort price. No
+analyst data.
 """
 from typing import Any, Dict, List, Optional
 from .base import Provider, http_json
 
 AV = "https://www.alphavantage.co/query"
+
+
+def _f(x) -> Optional[float]:
+    try:
+        return float(str(x).replace("%", "").strip())
+    except (TypeError, ValueError):
+        return None
 
 
 class AlphaVantage(Provider):
@@ -23,6 +33,8 @@ class AlphaVantage(Provider):
             if not price:
                 return None
             return {"symbol": symbol, "name": None, "price": float(price),
+                    "change": _f(gq.get("09. change")),
+                    "change_pct": _f(gq.get("10. change percent")),
                     "sma50": None, "sma200": None, "year_high": None, "year_low": None,
                     "source": self.name}
         except Exception:

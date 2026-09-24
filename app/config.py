@@ -12,16 +12,17 @@ class Settings(BaseSettings):
 
     # --- Provider order per capability (comma-separated names) ---
     # Dispatcher tries these left-to-right, returns the first that answers.
-    # quote: FMP first (rich: price + 50/200 MA + 52wk range); AV covers
-    # FMP-gated symbols; Finnhub is a broad price-only backstop.
-    quote_providers: str = "fmp,alpha_vantage,finnhub"
+    # quote: FMP first (rich: price + change + 50/200 MA + 52wk range). Finnhub
+    # next = real-time price for FMP-gated symbols (and it avoids a 2nd rapid
+    # Alpha Vantage call, which AV throttles). AV is the last-resort price.
+    quote_providers: str = "fmp,finnhub,alpha_vantage"
     # analyst: FMP has counts + price targets; Finnhub has counts only.
     analyst_providers: str = "fmp,finnhub"
     # weekly OHLC series: only Alpha Vantage gives what we need for ATR/40wk SMA.
     series_providers: str = "alpha_vantage"
 
     # --- In-memory cache TTLs (seconds); 0 disables caching for that capability ---
-    cache_ttl_quote: int = 300       # 5 min: prices move, but not per-keystroke
+    cache_ttl_quote: int = 60        # 1 min: keep the displayed price near real-time
     cache_ttl_analyst: int = 21600   # 6 h: consensus changes slowly
     cache_ttl_series: int = 21600    # 6 h: weekly bars change at most weekly
 

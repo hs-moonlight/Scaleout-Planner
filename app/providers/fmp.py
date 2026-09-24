@@ -1,7 +1,7 @@
-"""FMP provider: full quote (price + 50/200-day MAs + 52wk range) and analyst
-data (consensus + price targets). Free plan restricts symbol coverage and has a
-daily cap — both surface as HTTP 402, which we swallow and return None so the
-dispatcher falls back.
+"""FMP provider: full quote (price + day change + 50/200-day MAs + 52wk range)
+and analyst data (consensus + price targets). Free plan restricts symbol
+coverage and has a daily cap — both surface as HTTP 402, which we swallow and
+return None so the dispatcher falls back.
 """
 from typing import Any, Dict, Optional
 from .base import Provider, http_json, consensus_label
@@ -22,7 +22,11 @@ class FMP_(Provider):
         q = data[0] if isinstance(data, list) and data else (data if isinstance(data, dict) else None)
         if not q or q.get("price") is None:
             return None
+        change_pct = q.get("changePercentage")
+        if change_pct is None:
+            change_pct = q.get("changesPercentage")   # legacy field name
         return {"symbol": q.get("symbol"), "name": q.get("name"), "price": q.get("price"),
+                "change": q.get("change"), "change_pct": change_pct,
                 "sma50": q.get("priceAvg50"), "sma200": q.get("priceAvg200"),
                 "year_high": q.get("yearHigh"), "year_low": q.get("yearLow"),
                 "source": self.name}
