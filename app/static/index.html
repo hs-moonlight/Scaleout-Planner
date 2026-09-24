@@ -346,8 +346,19 @@ async function lookup(){
     renderSuggest(d); $("lookStatus").textContent="";
   }catch(e){ $("lookStatus").textContent="Lookup failed: "+e.message; }
 }
+var lastLook=null;  // {price, atr} from the most recent /suggest, for live ATR re-check
+function atrChipHtml(price,atr,stopPct){
+  if(atr==null||price==null)return '<span class="flag mut" id="atrFlag">ATR n/a</span>';
+  var inside=(price*stopPct/100)<atr;
+  return '<span class="flag '+(inside?"warn":"ok")+'" id="atrFlag">stop '+(inside?"inside":"clears")+" 1 ATR ("+money(atr)+")</span>";
+}
+function updateAtrFlag(){
+  if(!lastLook)return; var el=$("atrFlag"); if(!el)return;
+  el.outerHTML=atrChipHtml(lastLook.price,lastLook.atr,num("lkStop"));
+}
 function renderSuggest(d){
   $("suggestCard").classList.add("on"); $("sgSym").textContent=d.symbol;
+  lastLook={price:d.price,atr:d.atr_weekly};
   $("sgZone").innerHTML=[
     {k:"Price",v:money(d.price)+chgHtml(d)},
     {k:"Fair-entry low (40-wk)",v:money(d.zone_low)},
@@ -359,9 +370,7 @@ function renderSuggest(d){
   else if(d.trend_rising===false)flags+='<span class="flag bad">▼ 40-wk trend not rising</span>';
   else flags+='<span class="flag mut">trend direction n/a</span>';
   flags+= d.extended_above_zone?'<span class="flag warn">price above zone</span>':'<span class="flag ok">price in/below zone</span>';
-  if(d.stop_inside_atr===true)flags+='<span class="flag warn">stop inside 1 ATR ('+money(d.atr_weekly)+')</span>';
-  else if(d.stop_inside_atr===false)flags+='<span class="flag ok">stop clears 1 ATR ('+money(d.atr_weekly)+')</span>';
-  else flags+='<span class="flag mut">ATR n/a</span>';
+  flags+=atrChipHtml(d.price,d.atr_weekly,num("lkStop"));
   $("sgFlags").innerHTML=flags;
   $("sgNotes").innerHTML=(d.notes||[]).map(function(n){return "<li>"+esc(n)+"</li>";}).join("");
   var a=d.analyst;
@@ -377,6 +386,8 @@ function renderSuggest(d){
 }
 $("lookBtn").addEventListener("click",lookup);
 $("lkTicker").addEventListener("keydown",function(e){if(e.key==="Enter")lookup();});
+$("lkStop").addEventListener("input",function(){$("stopPct").value=this.value;renderPlan();updateAtrFlag();});
+$("stopPct").addEventListener("input",function(){$("lkStop").value=this.value;updateAtrFlag();});
 $("useEntryBtn").addEventListener("click",function(){
   var e=parseFloat(this.dataset.entry); if(!isNaN(e)){$("entry").value=e.toFixed(2);}
   if(this.dataset.sym){$("ticker").value=this.dataset.sym;}
